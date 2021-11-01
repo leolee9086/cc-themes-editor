@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="en" style="width:100%;height:100%;margin:0;padding:0;border:0;">
+<head>
+    <meta charset="utf-8">
+    <script src="static/vue.js"></script>
+    <script src="static/element-ui/index.js"></script>
+    <script src="static/axios.min.js"></script>
+    <script src="static/vue-clipboard.min.js"></script>
+    <script src="static/vue-router.js"></script>
+    <script src="static/httpVueLoader.js"></script>
+    <script src="static/jszip.min.js"></script>
+    <link rel="stylesheet" href="static/element-ui/theme-chalk/index.css">
+
+    <style>.el-table,
+        .el-table__expanded-cell {
+            background-color: transparent !important;
+        }         
+        .el-table th,
+        .el-table tr,
+        .el-table td {
+            background-color: transparent !important;
+        } 
+        .fullwidth>.el-input {
+            width:"100%"
+        }
+        </style>
+        
+</head>
+<body style="width:100%;height:100%;margin:0;padding:0;border:0;">
+    <OBJECT id="dlgHelper" CLASSID="clsid:3050f819-98b5-11cf-bb82-00aa00bdce0b" width="0px" height="0px"></OBJECT>
+    <div id="app" style="width:100%;height:100%;margin:0;padding:0;border:0;">
+        <div class="root" style="width:100%;height:100%;margin:0;padding:0;border:0;">
+            <div class="column">
+                <div class="column-left"  >
+                    <div class="resize-bar"></div>
+                    <div class="resize-line" ></div>
+                    <div class="resize-save">        
+                        <iframe id="iframe" frameborder="no" framespacing="0" allowfullscreen="true" id="ifram" seamless src="http://127.0.0.1:6806/stage/build/desktop" width="100%" height="100%" style="height:100%;margin:0;padding:0;border:0;"></iframe>
+                    </div>                                            
+                </div>
+                <div class="column-right" style="min-width:10px;display: flex;overflow-x:hidden;overflow-y:croll">
+                    <div   style="height:100%;width:100%;background-color: rgba(255, 255, 255, 30);float: right;">
+                        <el-container style="height:100%;width: 100%;">
+                            <el-main>
+                            <h2>主题设计器</h2>
+                                <el-button 
+                                v-on:click="复制到剪贴板(当前css样式表字符串)" 
+                                size='mini' 
+                                icon="el-icon-document-copy" 
+                                circle
+                                ></el-button>
+                                <el-button 
+                                v-on:click="保存主题()" 
+                                size='mini' 
+                                icon="el-icon-download" 
+                                circle>
+                                </el-button>
+                                <el-button 
+                                v-on:click="保存主题压缩包()" 
+                                size='mini' 
+                                icon="el-icon-suitcase-1" 
+                                circle></el-button>
+                                <el-button 
+                                v-on:click="清理临时主题()" 
+                                size='mini' 
+                                icon="el-icon-delete" 
+                                circle></el-button>
+                                
+                      
+                            <el-row>
+                            <el-divider></el-divider>
+
+                            <el-checkbox v-model="简单导出"></el-checkbox>
+                            <cc-sy-to-ob
+                            :syhtml="mainui"
+                            v-if="!简单导出"
+                            >
+                            </cc-sy-to-ob>
+                            <span  v-if="!简单导出"
+                            >实验性:保留备注\命名别名以及块id,iframe等块支持不是很好</span>
+                            <cc-sy-to-ob-simple
+                            :syhtml="mainui"
+                            v-if="简单导出"
+                            >
+                            </cc-sy-to-ob-simple>
+                            </el-row>
+                            <el-divider></el-divider>
+                                <el-switch v-model="是否设置主界面主题" active-text="设置主界面" inactive-text="设置iframe块主题"></el-switch>
+                                <el-input v-model="目标id" v-if="!是否设置主界面主题" placeholder="此处输入目标块id"></el-input>
+                                <el-switch @change="tips跳变()" v-model="是否使用tips增强" active-text="使用tips增强"></el-switch>
+                                <el-divider></el-divider>
+                            <el-input v-model="当前css样式表字符串" type="textarea" disabled></el-input>
+                            <el-divider></el-divider>
+                            <el-tabs v-model="当前活动面板">
+                                <el-tab-pane label="基础变量编辑" name="基础变量编辑">
+                                    <el-row>
+                                        <el-col :span='12'>
+                                    <el-switch
+                                    v-model="使用预定义配色"
+                                    active-text="使用预定义配色"
+                                    ></el-switch>
+                                </el-col>
+                                <el-col :span='12'>
+                                    <cc-assets-selector
+                                    v-if="使用预定义配色"
+                                    v-model="配色表地址"      
+                                    k="colorplan"
+                                    :apitoken="apitoken"
+                                    >
+                                    </cc-assets-selector>
+                                </el-col>
+                                
+                                    <div v-if="使用预定义配色">
+                                        这里的选项是位于你笔记附件中的colorplan文件,要增加选项可以通过把保存的配色方案上传到笔记里完成.
+                                    </div>
+                                    </el-row>
+                                    <el-row v-show="!使用预定义配色">
+                                    <el-col :span='6'>
+                                        <el-button v-on:click="保存变量()" size="mini">保存当前配色方案</el-button>
+                                    </el-col>
+                                    <el-col :span='6'>
+                                        <el-button v-on:click="保存样式表头()" size="mini">保存当前样式表头</el-button>
+                                    </el-col>
+                                    <el-col
+                                    :span='6'>
+                                    </el-col>
+                                    <el-col :span='6'>
+                                    <el-input 
+                                    v-model=配色表名称 size="mini" placeholder="保存时使用此处作为文件名">
+                                    </el-input>
+                                   
+                                    </el-col>
+                                   
+                                    </el-row>
+                                    <div >
+
+                                    <el-collapse >
+                                        <el-collapse-item
+                                        title="编辑主题签名"
+                                        >
+                                        <el-form size=mini ref="签名文件对象" :model="签名文件对象" label-width="80px">
+                                            <el-form-item label="主题名称">
+                                                <el-input v-model="签名文件对象.name"></el-input>
+                                              </el-form-item>  
+                                              <el-form-item label="主题作者">
+                                                <el-input v-model="签名文件对象.author"></el-input>
+                                              </el-form-item>  
+                                              <el-form-item label="主题url">
+                                                <el-input v-model="签名文件对象.url"></el-input>
+                                              </el-form-item>
+                                              <el-form-item label="主题版本">
+                                                <el-input v-model="签名文件对象.version"></el-input>
+                                              </el-form-item>
+                                              <el-form-item label="主题模式">
+                                                <el-input v-model="签名文件对象.modes"></el-input>
+                                              </el-form-item>
+                                        </el-form>
+                                        </el-collapse-item>
+                                    <el-collapse-item
+                                    title=编辑配色
+                                    >
+                                    <template>
+                                        <el-row
+                                        v-for="css变量 in css变量类型表"
+                                        v-if = "css变量.type=='color'"
+                                        >
+                                        <el-row><strong>{{css变量.label}}</strong><span>({{css变量.value}})</span>  
+                                        
+                                        </el-row>
+                                        <cc-color-picker
+                                        @change="设定css变量对象()"
+                                        :outputcolor="css变量对象[css变量.value]"
+                                        v-if = "css变量.type=='color'"
+                                        v-model = "css变量对象[css变量.value]"
+                                        ></cc-color-picker>
+                                         </el-row> 
+                                    </template>
+                                    </el-collapse-item>
+                                    <el-collapse-item
+                                    title="编辑字体组"
+                                    >
+                                    <template>
+                                    <el-row
+                                    v-for="css变量 in css变量类型表"
+                                    v-if = "css变量.type=='fonts'"
+                                    >
+                                    <el-row><strong>{{css变量.label}}</strong><span>({{css变量.value}})</span></el-row>
+ 
+                                    <el-select 
+                                    @change="css变量对象[css变量.value] = $event;设定css变量对象()"
+                                    v-model="css变量对象[css变量.value]"  
+                                    size = "mini" 
+                                    multiple
+                                    filterable
+                                    width="100%"
+                                    style="width: 100% !important;"
+                                    class="fullwidth"
+                                    >
+                                        <el-option
+                                            v-for="item in 系统字体列表"
+                                            :key="item"
+                                            :label="item"
+                                            :value="item"
+                                            :style="'{font-family='+item+'}'"
+                                            >
+                                            <span :style='"float: left;font-family:"+ item +";"'>{{ item }}</span>
+
+                                        </el-option>
+                                    </el-select>
+                                </el-row>
+
+                                    </template>
+
+                                    </el-collapse-item>
+                               
+                                    </el-collapse>
+                                    </div>
+                                </el-tab-pane>
+                                <el-tab-pane label="选择器表编辑" name="选择器表编辑">
+                                    <div
+                                    >
+                                    <el-row>
+                                    <el-col :span='12'>
+                                   <el-switch
+                                    v-model="使用预定义选择器组"
+                                    active-text="使用预定义选择器组"
+                                    ></el-switch>
+                                    </el-col>
+                                    <el-col :span='12'>
+                                    <cc-assets-selector
+                                    v-if="使用预定义选择器组"
+                                    v-model="选择器表地址"      
+                                    k="cssselector"
+                                    :apitoken="apitoken"
+                                    >
+                                    </cc-assets-selector>
+                                    </el-col>
+                                    </el-row>
+                                    <el-row v-if="!使用预定义选择器组">
+                                    <el-col :span='6'>    
+                                    <el-button v-on:click="保存选择器列表()" size="mini">保存选择器组</el-button>
+                                     </el-col>
+                                     <el-col :span='6'>    
+                                    <el-button v-on:click="获取选择器组()" size="mini">刷新选择器组</el-button>
+                                    </el-col>
+                                    <el-col :span='6'>    
+                                    <el-input 
+                                    v-model=选择器表名称 size="mini" placeholder="保存时使用此处作为文件名">
+                                    </el-input>
+                                    </el-col>
+                                    </el-row>
+                                    <el-divider></el-divider>
+                                    <el-table
+                                    :data="选择器列表"
+                                    style="margin:0%;padding: 0%;width: 100%;background-color: rgba(0, 0, 0, 0);"
+                                    empty-text="选择器列表"
+                                    >
+                                    <el-table-column
+                                    type="index"
+                                    width="50">
+                                    </el-table-column>
+                                    <el-table-column
+                                    label="分组"
+                                    prop="group"
+                                    sortable
+                                    style="background-color: rgba(0, 0, 0, 0);">
+                                    <template slot-scope="scope" >
+                                        <el-input size="mini"  v-model="scope.row.group" type="textarea" autosize >
+                                        </el-input>
+                                    </template>
+                                    </el-table-column>
+                                    <el-table-column
+                                    label="二级分组"
+                                    prop="subgroup"
+                                    sortable
+                                    style="background-color: rgba(0, 0, 0, 0);">
+                                    <template slot-scope="scope" >
+                                        <el-input size="mini"  v-model="scope.row.subgroup" type="textarea" autosize >
+                                        </el-input>
+                                    </template>
+                                    </el-table-column>
+                                    <el-table-column
+                                    style="background-color: rgba(0, 0, 0, 0);"
+                                    label="选择器备注"
+                                    prop="label"
+                                    sortable>
+                                    <template slot-scope="scope" >
+                                        <el-input size="mini"  v-model="scope.row.label" type="textarea" autosize >
+                                        </el-input>
+                                    </template>
+                                    </el-table-column>
+                                    <el-table-column fit 
+                                    style="background-color: rgba(0, 0, 0, 0);"
+                                    label="选择器内容"
+                                    prop="value"
+                                    >
+                                    <template slot-scope="scope" >
+                                        <el-input size="mini"  v-model="scope.row.value" type="textarea" autosize >
+                                        </el-input>
+                                    </template>
+                                    </el-table-column>
+                                    <el-table-column  
+                                    style="background-color: rgba(0, 0, 0, 0);"
+                                    prop="value"
+                                    width="50"
+                                    >
+                                    <template slot-scope="scope" >
+                                        <el-row>
+                                        <el-button size="mini" icon="el-icon-aim" circle  v-on:click="testselector(scope.row.value)">
+                                        </el-button>
+                                        </el-row>
+                                        <el-row>
+                                        <el-button size="mini"  icon="el-icon-edit" circle v-on:click="编辑选择器对应样式(scope.row.group,scope.row.subgroup,scope.row.value)">
+                                        </el-button>
+                                        </el-row>
+                                        <el-row>
+                                        <el-button size="mini"  
+                                        icon="el-icon-minus" 
+                                        circle 
+                                        v-on:click="删除选择器(scope.row.value)">
+                                        </el-button>
+                                        </el-row>
+                                        <el-row>
+                                        <el-button size="mini"  
+                                            icon="el-icon-plus" 
+                                            circle 
+                                            v-on:click="添加选择器(scope.$index)">
+                                        </el-button>
+                                        </el-row>
+                                    </template>
+                                    </el-table-column>
+                                    </el-table>  
+                                </div>
+                                </el-tab-pane>
+                                <el-tab-pane label="样式编辑" name="样式编辑">
+                                    <el-cascader
+                                    v-model="当前选择器"
+                                    :options="选择器面板选项"
+                                    size="mini"
+                                    :props="{emitPath:false}"
+                                    filterable
+                                    v-if = "当前活动面板=='样式编辑'"	
+                                    >
+                                    <template slot-scope="{ node, data }">
+                                        <span  v-if="!node.isLeaf">{{ data.label }}</span>
+                                        <span v-if="!node.isLeaf"> ({{ data.children.length }}) </span>
+                                        <span v-if="node.isLeaf"> {{ data.memo||data.label }} </span>
+                                      </template>
+                                    </el-cascader>                            
+                                    <span>{{当前选择器备注}}({{当前选择器}})</span>  
+                                    <el-divider></el-divider>
+                                    <el-input v-model="当前css样式" type="textarea" disabled></el-input>
+                                    <el-collapse>    
+                                        <el-collapse-item 
+                                                v-for="(propgroup,i) in cssproperties"
+                                                :title = "propgroup.name">
+                                                <template slot="title">
+                                                    <h4>{{propgroup.name}}</h4>
+                                                </template>                                  
+                                                <template >
+                                                <div v-for="(v,i) in propgroup.props">
+                                                    <el-row :gutter='21'> 
+                                                    <el-col :span='6'>
+                                                    <span>{{v.label}}</span>  
+                                                    </el-col>
+                                                    <el-col :span='6'></el-col>
+
+                                                    <el-col :span='6'>
+                                                    <el-switch
+                                                    size="mini"
+                                                    v-model="当前css样式内容对象[v.value]['!important']"  
+                                                    @change="setstyle()"
+                                                    active-text="!important"
+                                                    ></el-switch>
+                                                    
+                                                    </el-col>
+                                                    </el-row>
+                                                    <cc-cssimage
+                                                    @change="setstyle()"
+                                                    v-model="当前css样式内容对象[v.value]['realvalue']"  
+                                                    v-if="v.type=='image'"
+                                                    :apitoken="apitoken"
+                                                    :filetypes='[".png",".jpg",".svg",".tiff",".gif"]'
+                                                    >
+                                                    </cc-cssimage>
+                                                <el-input  
+                                                  @change="setstyle()"
+                                                 v-model="当前css样式内容对象[v.value]['realvalue']" placeholder="请输入属性" size = "mini" :min="1" :max="100" v-if="v.type=='string'"></el-input>
+                                                <el-color-picker  
+                                                @change="setstyle()"
+                                                v-model="当前css样式内容对象[v.value]['realvalue']"  
+                                                size = "mini" 
+                                                v-if="v.type=='color'"
+                                                color-format="rgb"	
+                                                show-alpha	
+                                                ></el-color-picker>
+                                                <el-slider 
+                                                @change="setstyle"
+                                                v-if="v.type=='number'" v-model="当前css样式内容对象[v.value]['realvalue']"></el-slider>
+                                                <el-input-number  
+                                                @change="setstyle()"
+                                                v-model="当前css样式内容对象[v.value]['realvalue']" placeholder="输入百分比值" size = "mini" :min="0" :max="100" v-if="v.type=='number'"></el-input-number>
+                                                <el-select 
+                                                @change="setstyle"
+                                                v-model="当前css样式内容对象[v.value]['unit']"  size = "mini"  v-if="v.type=='number'">
+                                                    <el-option
+                                                        v-for="item in cssunits"
+                                                        :key="item.name"
+                                                        :label="item.name+'('+item.tips+')'"
+                                                        :value="item.name">
+                                                    </el-option>
+                                                </el-select>
+                                                <el-select  
+                                                allow-create  
+                                                filterable
+                                                @change="setstyle()"
+                                                v-model="当前css样式内容对象[v.value]['realvalue']"  
+                                                size = "mini"  
+                                                v-if="v.type=='select'"
+                                                width="20px">
+                                                <el-option
+                                                    v-for="item in v.option"
+                                                    :key="item"
+                                                    :label="item"
+                                                    :value="item">
+                                                </el-option>
+                                                </el-select>
+                                                
+                                                <el-select 
+                                                v-if="v.type=='fonts'"
+                                                @change="设定临时字体列表(当前css样式内容对象[v.value])"
+                                                v-model="临时字体列表"  
+                                                size = "mini" 
+                                                multiple
+                                                filterable
+                                                style="width: 100% !important;"
+                                                class="fullwidth"
+                                                >
+                                                    <el-option
+                                                        v-for="item in 系统字体列表"
+                                                        :key="item"
+                                                        :label="item"
+                                                        :value="item"
+                                                        >
+                                                        <span :style='"float: left;font-family:"+ item +";"'>{{ item }}</span>
+                                                  
+                                                    </el-option>
+                                                </el-select>
+                                                </div>
+                                                </template>
+                                            </el-collapse-item>
+                                    </el-collapse>
+                                </el-tab-pane>
+                            <!--<el-tab-pane label="选择器生成" name="选择器生成">
+                                <h6>鼠标停留1秒后生成选择器</h6>
+
+                            </el-tab-pane>
+                            -->
+                            <el-tab-pane label="笔记内css支持" name="笔记内css支持">
+                                <el-button v-on:click="获取笔记内css()" size="mini">获取笔记内css片段</el-button>
+                                <el-switch v-model="主题包含激活的css片段" active-text="主题包含激活的css片段"></el-switch>
+                                <template v-for="(item,i) in 笔记内主题片段数组"  >
+                                    <el-divider></el-divider>
+                                    <h6 @click="窗口内打开(item.root_id)">{{item.hpath}}<h6>
+                                    <h6>命名:{{item.name}} ,别名:{{item.alias}} <h6>
+                                    <el-checkbox v-model="item.flag"  v-on:change='应用笔记内css(item)'   size="mini">应用片段</el-checkbox>
+                                <el-input :key=item.id v-model="item.content" type="textarea" disabled></el-input>
+                                <el-link  @click="窗口内打开(item.id)">{{item.box+item.hpath}}</el-link>
+
+                            </template>
+                            </el-tab-pane >
+                            <el-tab-pane label="空行tips增强" name="空行tips增强">
+                                <el-row>
+                                <el-button v-on:click="刷新tips列表()" size="mini">刷新tips列表</el-button>
+                                <el-switch 
+                                v-model="tips获取方式" 
+                                active-value="sql" 
+                                active-text="sql"
+                                inactive-value="前缀" 
+                                inactive-text="前缀"
+                                ></el-switch></el-row>
+                                <el-row>
+                                <span>非空块显示：</span>
+                                <el-radio v-model="非空块tips" label="显示备注">显示备注</el-radio>
+                                <el-radio v-model="非空块tips" label="显示tips">显示tips</el-radio>
+                                <el-radio v-model="非空块tips" label="无">无</el-radio>
+                                <el-input v-on:change="刷新tips列表()" v-model="tips前缀" v-if="tips获取方式=='前缀'" placeholder="输入tips前缀"></el-input>
+                                <el-input v-on:change="刷新tips列表()" v-model="tips获取语句" v-if="tips获取方式=='sql'" placeholder="输入sql"></el-input>
+                                <span v-if="tips获取方式=='sql'">提示:上方的sql中用.action{.id}等变量代替当前文档属性，.action{block.id}等变量代替当前块属性</span>
+                                <el-input  v-model="真实sql语句" v-if="tips获取方式=='sql'" placeholder="转译" disabled></el-input>
+                                <el-radio v-model="tips属性指定" label="content">适用内容</el-radio>
+                                <el-radio v-model="tips属性指定" label="name">适用命名</el-radio>
+                                <el-radio v-model="tips属性指定" label="alias">适用别名</el-radio>
+                                <el-radio v-model="tips属性指定" label="memo">适用备注</el-radio>
+                                </el-row>
+                                <template v-for="(item,i) in tips列表" >
+
+                                    <el-divider></el-divider>
+                                    <h6>命名:{{item.name}} ,别名:{{item.alias}} <h6>
+                                <el-input v-model="item.content" type="textarea" disabled></el-input>
+                                <el-link @click="窗口内打开(item.id)">{{item.box+item.hpath}}</el-link>       
+                            </template>
+                            </el-tab-pane>
+                            </el-tabs>
+                        </el-container>        
+                    </div> 
+                </div>
+        </div>
+    </div>
+
+    </div>
+</body>
+<script>
+    Vue.use(httpVueLoader);
+  //  Vue.use(VueRouter);
+  
+    var vm = new Vue({
+        el: "#app",
+        components:{
+            "cc-color-picker":"url:components/cc-color-picker.vue",
+            "cc-assets-selector":"url:components/cc-assets-selector.vue",
+            "cc-cssimage":"url:components/cc-cssimage.vue",
+            "cc-sy-to-ob":"url:components/cc-sy-to-ob.vue",
+            "cc-sy-to-ob-simple":"url:components/cc-sy-to-ob-simple.vue",
+            "cc-custom-cssattr-setter":"url:components/cc-custom-cssattr-setter.vue",
+        },
+        mounted:async function(){
+            let that = this
+            that.hosturl = window.location.host
+            window.document.querySelector('iframe').src="http://"+that.hosturl
+            that.mainuigetter()
+
+            that.主题设置目标= that.mainui
+            that.mainhead = that.mainui.querySelector("head")
+            await that.propertygetter()
+            await that.获取选择器组()
+            that.初始化当前css样式内容对象()
+            that.初始化当前css样式表对象()
+            await that.初始化css变量对象()
+            that.初始化选择器面板选项()
+            await that.获取系统字体列表()
+           // await that.刷新tips列表()
+           // await that.tips跳变()
+         //   that.mainui.addEventListener('keyup',that.随机tip)
+            
+        },
+        data(){
+            return{
+                选择器表名称:"",
+                使用预定义选择器组:true,
+                主题包含激活的css片段:true,
+                简单导出:true,
+                是否使用tips增强:false,
+                使用预定义配色:true,
+                配色表名称:"",
+                本地配色表地址:"",
+                配色表地址:"colorplan.json",
+                图片列表:[],
+                tips序号:"",
+                tips属性指定:"content",
+                真实sql语句:"",
+                当前文档id:"",
+                当前块id:"",
+                当前文档信息:[],
+                当前块信息:[],
+                非空块tips:"显示备注",
+                tips获取方式:"前缀",
+                tips获取语句:"select * from blocks where content like '@tips%' ",
+                tip:"键入文字或'/'选择",
+                tips列表:[],
+                tips前缀:"@tips",
+                临时字体列表:[],
+                系统字体列表:[],
+                mainui:{},
+                是否设置主界面主题:true,
+                目标id:"",
+                主题设置目标:{},
+                备选选择器数组:[],
+                当前活动面板:"基础变量编辑",
+                选择器面板选项:[],
+                css变量对象:{},
+                css变量类型表:[],
+                当前css样式表头:"",
+                当前选择器备注:"顶部工具栏",
+                当前选择器:".toolbar",
+                选择器表地址:"cssselector.json",
+                默认选择器组URL:"cssselector.json",
+                currrentgroup:"工具栏",
+                currrentsubgroup:"顶部工具栏",
+                选择器列表:[{"group":"工具栏","label":"顶部工具栏","value":".toolbar"}],
+                mainhead:{},
+                blockels:[],
+                tempgrouplist:[],
+                tempsubgrouplist:[],
+                tempselectorlist:[],
+                当前css样式内容对象:{},
+                当前css样式表对象:{},
+                cssproperties:[],
+                当前css样式表字符串:"",
+                当前css样式:"",
+                笔记内主题片段数组:[],
+                apitoken:"",
+                cssunits:{},
+                当前css样式内容字符串:"",
+                签名文件对象:{"name": "themename",
+	                        "author": "yourname",
+	                        "url": "yoururl",
+	                        "version": "1.0.1",
+	                        "modes": '["dark"]'}
+                    }
+                },
+
+        watch:{
+           
+            配色表地址:{
+                async handler(val,oldval){
+                let that = this
+                console.log(val)
+                await that.初始化css变量对象()
+                that.设定css变量对象()
+                },
+                deep:true,
+            },
+            选择器表地址:{
+                async handler(val,oldval){
+                let that = this
+                console.log(val)
+                await that.初始化css变量对象()
+                that.获取选择器组()
+                },
+                deep:true,
+            },
+            选择器列表:{
+                handler(val,oldval){
+                let that = this
+              //  console.log(val)
+                let tempgrouplist = []
+                val.forEach(item => {
+                    tempgrouplist.push(item["group"])
+                });
+                this.tempgrouplist = Array.from(new Set(tempgrouplist))
+               // console.log(this.tempgrouplist)
+               this.重设样式表对象()
+               this.初始化选择器面板选项()
+                },
+                deep:true,
+            },
+            当前选择器:{handler(val,oldval){
+                let that = this
+           //     console.log(val)
+                that.重设样式表对象()
+                that.初始化当前css样式内容对象()
+                let 临时css样式对象 ={}
+                this.选择器列表.forEach(item => {
+                    if(item["value"]==val)
+                    {
+                        that.当前选择器备注 = item["label"]
+
+                       // console.log(val,that.当前css样式表对象,that.当前css样式表对象[val]["对象"])
+                       if(that.当前css样式表对象[val]["对象"]!="") {临时css样式对象 = JSON.parse( that.当前css样式表对象[val]["对象"])}
+                    }
+                    for(item in 临时css样式对象){that.当前css样式内容对象[item]=临时css样式对象[item]} 
+                });
+                that.当前css样式内容对象 =JSON.parse(JSON.stringify(that.当前css样式内容对象)) 
+                that.临时字体列表=""
+            },
+            deep:true,
+                     },
+       
+        },
+        methods:{
+            窗口内打开:async function(id){
+                let that = this
+                that.mainuigetter()
+                let 虚拟链接 =  that.mainui.createElement("span")
+                虚拟链接.setAttribute("data-type","block-ref")
+                虚拟链接.setAttribute("data-id",id)
+                let 临时目标 = that.mainui.querySelector(".protyle-wysiwyg div[data-node-id] div[contenteditable]")
+                console.log(临时目标)
+                临时目标.appendChild(虚拟链接)
+                let 点击事件 =  that.mainui.createEvent('MouseEvents')
+                点击事件.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+                虚拟链接.dispatchEvent(点击事件);
+                虚拟链接.remove()
+            },
+            刷新tips列表:async function(tips前缀){
+                let that = this
+
+                let sql语句 = "select * from blocks where content like '"+that.tips前缀+"%' and not type = 'd' and not type = 'queryembed'"
+                
+                let 真实sql语句 = sql语句.slice(0)
+                if(that.tips获取方式=="sql"){
+                    that.获取当前属性()
+                    sql语句 = that.tips获取语句
+                    真实sql语句 = sql语句.slice(0)
+                  //  console.log(that.tips获取语句)
+                      
+                    await that.通过sql获取数据("select * from blocks where id ='"+that.当前文档id+"'",'当前文档信息')
+                    await  that.通过sql获取数据("select * from blocks where id ='"+that.当前块id+"'",'当前块信息')
+                    
+                    console.log(that.当前文档信息,that.当前块信息)
+                    for (item in that.当前文档信息[0]){真实sql语句 = 真实sql语句.replace(".action{."+item+"}",that.当前文档信息[0][item]); }
+                    for (item in that.当前块信息[0]){真实sql语句 = 真实sql语句.replace(".action{block."+item+"}",that.当前块信息[0][item]);
+                    //console.log(item)
+                }
+                }
+                //console.log('生成',真实sql语句)
+                that.真实sql语句=真实sql语句
+                await  that.通过sql获取数据(真实sql语句,'tips列表')
+                that.tips列表 = JSON.parse(JSON.stringify(that.tips列表))
+            },
+            tips跳变:async function(){
+                let that = this
+                if(that.是否使用tips增强){
+                that.mainuigetter()
+                that.mainui.addEventListener('click',that.刷新tips列表)
+
+                that.mainui.addEventListener('click',that.随机tip)
+                that.mainui.addEventListener('keydown',that.随机tip)}
+                else{
+                that.mainuigetter()
+                let 旧元素 = that.mainui.querySelector('#cctipset')
+                    if(旧元素){旧元素.remove()}
+                that.mainui.removeEventListener('click',that.刷新tips列表)
+             
+                that.mainui.removeEventListener('click',that.随机tip)
+                that.mainui.removeEventListener('keydown',that.随机tip)
+                }
+
+
+
+            },
+            获取当前属性:function(){
+                let that = this
+                that.mainuigetter()
+                let 当前文档背景图 = that.mainui.querySelector(".fn__flex-1.protyle[data-id]:not(.fn__flex-1.protyle.fn__none) .protyle-background")
+                let 当前文档id = 当前文档背景图.getAttribute("data-node-id")
+                that.当前文档id = 当前文档id
+                let 当前内容元素 =  that.mainui.querySelector('.protyle-wysiwyg [data-node-id] :focus')
+                let 当前块元素 = null
+                if(当前内容元素){当前块元素 = 当前内容元素.parentElement}
+                let 当前块id = ""
+                if (当前块元素&&当前块元素.hasAttribute("data-node-id")){
+                当前块id = 当前块元素.getAttribute("data-node-id")}
+                that.当前块id = 当前块id
+               /// console.log(当前块id, 当前文档id)
+            },
+            随机tip:async function(){
+                let that = this
+                属性名 = that.tips属性指定
+                that.mainuigetter()
+                //await    that.设定tips()
+                    let tips激活列表 = null
+                    if (that.tips列表){ tips激活列表 = that.tips列表.filter(item=>item["flag"])}
+                   // console.log(that.tips列表)
+                    if (!tips激活列表){tips激活列表=[{属性名:"无匹配值","flag":true}]}
+                    
+                    let i = Math.floor((Math.random()*tips激活列表.length));
+                    if (tips激活列表&&tips激活列表.length>1)  {                 
+                    while (i == that.tips序号){i = Math.floor((Math.random()*tips激活列表.length))}}
+                   // console.log(i)
+                    that.tips序号 = i
+                    if (tips激活列表[i]["flag"]){
+                    that.tip = tips激活列表[i][属性名].slice(0)
+                    if (that.tips获取方式=="前缀"){
+                    let j = that.tip.search(that.tips前缀)
+                    that.tip = that.tip.slice(j+that.tips前缀.length)}
+                    }
+                  //  console.log(that.tip)
+                    let 旧元素 = that.mainui.querySelector('#cctipset')
+                    if(旧元素){旧元素.remove()}
+                    let 临时元素 = window.document.createElement("style")
+                    临时元素.innerHTML = ""
+                    let 当前memo= that.获取当前memo()
+               //   console.log(当前memo)
+                    if (that.非空块tips=="显示备注"&&当前memo)
+                    {临时元素.innerHTML = 临时元素.innerHTML+".protyle-wysiwyg [data-node-id] :focus:after {display:block;content: '备注:"+当前memo.replace("\n","  ")+"';color: var(--b3-theme-primary-lighter);}"}
+                    if (that.非空块tips=="显示tips")
+                    {临时元素.innerHTML = 临时元素.innerHTML+".protyle-wysiwyg [data-node-id] :focus:after {display:block;content: '"+that.tip+"';color: var(--b3-theme-primary-lighter);}"}
+                    if (that.非空块tips=="无")
+                    {临时元素.innerHTML = 临时元素.innerHTML}
+                    临时元素.innerHTML =  临时元素.innerHTML+ ".protyle-wysiwyg [data-node-id] [spellcheck='false']:focus:empty:after {content: '"+that.tip+"';color: var(--b3-theme-primary-lighter);}"                     
+                    临时元素.setAttribute("id",'cctipset')
+                    临时元素.setAttribute("class",'cctempstyle')
+                    let tempstyle = 临时元素
+                    that.mainhead.appendChild(tempstyle)
+                   // console.log(tempstyle)
+            },
+            获取当前memo:function(){
+                let that = this
+                let 当前内容元素 =  that.mainui.querySelector('.protyle-wysiwyg [data-node-id] :focus')
+                let 当前块元素 = null
+                if(当前内容元素){当前块元素 = 当前内容元素.parentElement}
+           //     console.log(当前块元素)
+                let 当前memo = ""
+                if (当前块元素&&当前块元素.hasAttribute("memo")){
+                当前memo = 当前块元素.getAttribute("memo")}
+                return 当前memo
+            },
+            设定临时字体列表:function(属性值){
+                
+                属性值['realvalue'] = this.临时字体列表
+                this.setstyle()
+                
+            },
+            获取系统字体列表:function(){
+                let that = this
+                 axios({
+                        method:'POST',
+                        url:'http://'+vm.hosturl + '/api/system/getSysFonts',
+                        headers:{'Authorization': 'Token '+ that.apitoken },
+                        data:({})
+                        }).then(result =>{
+                       // console.log(result.data.data)
+                        that.系统字体列表=result.data.data
+                        })
+            },
+            清理临时主题:function(){
+                let that=this
+                that.mainuigetter()
+                let temps = that.主题设置目标.querySelectorAll("#temptheme")
+                temps.forEach(el=>el.remove())
+                that.初始化当前css样式表对象()
+                that.初始化当前css样式内容对象()
+                that.初始化css变量对象()
+                that.当前css样式=""
+                that.当前css样式表字符串=""
+            },
+            应用笔记内css:function(item){
+                let that =this
+                that.笔记内css字符串=""
+                let 临时元素 = window.document.createElement("style")
+                临时元素.innerHTML = item.content
+                临时元素.setAttribute("id",'cc'+item.id)
+                临时元素.setAttribute("class",'cctempstyle')
+                let tempstyle = 临时元素
+                this.mainuigetter()
+             //   console.log(this.mainhead)
+                let temps = this.主题设置目标.querySelectorAll("#"+'cc'+item.id)
+                temps.forEach(el=>el.remove())
+                if (item.flag){
+                this.mainhead.appendChild(tempstyle)
+                }
+                this.mainuigetter()
+                 temps = this.主题设置目标.querySelectorAll("#"+'cc'+item.id)
+                temps.forEach(el=> that.笔记内css字符串=that.笔记内css字符串+el.textContent
+                    )
+                this.setstyle()
+            },
+            通过sql获取数据:async function(sql语句,目标数据名){
+                let that = this
+                let jsondatas =  {"stmt": sql语句} 
+                await axios({
+                        method:'POST',
+                        url:'http://'+vm.hosturl + '/api/query/sql',
+                        headers:{'Authorization': 'Token '+ that.apitoken },
+                        data:(jsondatas)
+                        }).then(result =>{
+                        that[目标数据名] = result.data["data"]
+                        if (that[目标数据名] !=null){
+                        that[目标数据名].forEach(item=>item["flag"]=true)}
+                     //   console.log(that[目标数据名])
+                        })
+            },
+            获取笔记内css:async function(){
+                let that = this
+                let sql语句 =  'select * from blocks where type = "c" and content like "/*主题片段*/%"'
+                await that.通过sql获取数据(sql语句,'笔记内主题片段数组')
+                that.笔记内主题片段数组.forEach(el=>el.flag=false)
+
+             //   console.log(that.笔记内主题片段数组)
+            },
+            重设样式表对象:function(){
+                let 临时样式表对象 = JSON.parse(JSON.stringify(this.当前css样式表对象))
+                for (i=0;i<this.选择器列表.length;i++){
+                    let 待检查选择器 = this.选择器列表[i]["value"]
+                  //  console.log(待检查选择器)
+                    //对应选择器在选择器表中但是不在样式表中
+                    if (!临时样式表对象[待检查选择器]){this.当前css样式表对象[待检查选择器]={"对象":"","注释":"","样式":""};}
+                    
+                    delete 临时样式表对象[待检查选择器]
+
+                }
+            //   console.log (临时样式表对象)
+                for (item in 临时样式表对象){this.当前css样式表对象[item]={"对象":"","注释":"",};delete this.当前css样式表对象[item]}
+             //   console.log(this.当前css样式表对象)
+            },
+
+            获取全部后代自dom元素:function(元素,目标数组){
+                let that = this
+                元素.childNodes.forEach(子元素=>{
+                    目标数组.push(子元素)
+                    if(子元素.childNodes){
+                    that.获取全部后代自dom元素(子元素,目标数组)
+                    }
+                })
+                return 目标数组
+            },
+            初始化选择器面板选项:function(){
+                let that = this
+                let 选择器列表 =  that.选择器列表
+                let 选择器面板选项 = that.选择器面板选项
+                let 临时分组列表 = []
+                let 临时选择器内容列表 = []
+
+                选择器列表.forEach(item=>{
+                    临时分组列表.push(aaa(item["group"]))
+                })
+
+                临时分组列表 =  去重(临时分组列表)
+                临时分组列表.forEach(item=>{
+                    选择器列表.forEach(item1=>{
+                        if (item1["group"]==item["value"]){
+                            item.children.push(aaa(item1["subgroup"]))
+                        }
+                    })
+                    item.children = 去重(item.children)
+                    })
+                临时分组列表.forEach(item=>{
+                    item.children.forEach(item1=>{
+                        选择器列表.forEach(item2=>{
+                        if (item2["group"]==item["value"]&&item2["subgroup"]==item1["value"]){
+                            item1.children.push({"value":item2["value"],"label":item2["value"],"memo":item2["label"]})
+                        }
+                    })
+                    })
+                    })
+                    
+             //   console.log(临时分组列表)
+                that.选择器面板选项 = 临时分组列表
+
+                function aaa (string){
+                    let obj = {}
+                    obj = {"value":string,"label":string,"children":[]}
+                    return obj
+                }
+                function 去重(arr) {
+                    const res = new Map();
+                    return arr.filter((arr) => !res.has(arr.value) && res.set(arr.value, 1));
+                }
+            },
+            保存选择器列表:function(){
+                let bb = new Blob([JSON.stringify(this.选择器列表)], {type : 'application/json'});
+                this.保存(bb, `cssselector(${this.选择器表名称}).json`)
+            },
+            保存主题:function(){
+                let bb = new Blob([this.当前css样式表字符串], {type : 'plaintext/css'});
+                this.保存(bb, 'theme.css')
+            },
+            保存主题压缩包: function(){
+                let that = this
+                this.setstyle()
+                let zip = new JSZip()
+                zip.file("theme.json",JSON.stringify( this.签名文件对象))
+                console.log(this.当前css样式表对象)
+                图片路径数组 = []
+                let 图片文件夹 = zip.folder("images")
+                console.log(图片文件夹)
+                for(item in this.当前css样式表对象)
+                {
+                    let obj = this.当前css样式表对象[item]
+                    if (obj["对象"]){
+                        let 对象 = JSON.parse(obj["对象"])
+                        for (style in 对象){
+                            if (对象[style]["realvalue"].slice(0,3)=="url"){
+                                console.log(对象[style]["realvalue"])
+                                图片路径数组.push(对象[style]["realvalue"])
+                            }
+                        }
+                    }
+                }
+                console.log(图片路径数组)
+                if (图片路径数组.length==0){
+                            zip.file("theme.css",this.当前css样式表字符串)
+                            zip.generateAsync({type:"blob"}).then(content => { 
+                            this.保存(content, `${this.签名文件对象.name}.zip`) })
+                        }
+                else for (i=0;i<图片路径数组.length;i++){
+                    let css图片路径 = 图片路径数组[i]
+                    let 真实图片路径 = css图片路径.replace(/^url\(/,"").replace(")","")
+                    let 图片读取请求 = new XMLHttpRequest()
+                    图片读取请求.open("get",真实图片路径,true)
+                    图片读取请求.responseType = "blob";
+                    let 图片数据 = null
+                    图片读取请求.onload =  function(){
+                         图片数据 = this.response
+                        console.log(图片数据)
+                        let 图片内容读取器 = new FileReader()
+                        console.log(图片数据)
+                        图片内容读取器.readAsDataURL(图片数据)
+                         图片内容读取器.onload = function(){
+                        console.log(图片内容读取器.result)
+                        console.log()
+                        图片文件夹.file(真实图片路径.slice(真实图片路径.lastIndexOf("/")+1), 图片内容读取器.result.substring(22),{base64:true})
+                        console.log(i)
+                        let 真实css = that.当前css样式表字符串.replace(真实图片路径.slice(0,真实图片路径.lastIndexOf("/")+1),"images/")
+                        if (图片路径数组.length==0||i == 图片路径数组.length){
+                            zip.file("theme.css",真实css)
+                            zip.generateAsync({type:"blob"}).then(content => { 
+                            that.保存(content, `${that.签名文件对象.name}.zip`) })
+                        }
+                        } 
+                    }
+                    图片读取请求.send()
+                    
+                }
+               
+            },
+            保存变量:function(){
+                let bb = new Blob([JSON.stringify(this.css变量对象)], {type : 'application/json'});
+                this.保存(bb, 'colorplan('+this.配色表名称+').json')
+            },
+            保存样式表头:function(){
+                let bb = new Blob([this.当前css样式表头], {type : 'plaintext/css'});
+                this.保存(bb, 'theme.css')
+            },
+            保存:function(blob, filename) {
+                let type = blob.type;
+                let force_saveable_type = 'application/octet-stream';
+                if (type && type != force_saveable_type) { // 强制下载，而非在浏览器中打开
+                    var slice = blob.slice || blob.webkitSlice || blob.mozSlice;
+                    blob = slice.call(blob, 0, blob.size, force_saveable_type);
+                }
+
+                let url = URL.createObjectURL(blob);
+                let save_link = document.createElement('a');
+                save_link.href = url;
+                save_link.download = filename;
+                let event = document.createEvent('MouseEvents');
+                event.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+                save_link.dispatchEvent(event);
+                URL.revokeObjectURL(url);
+               // console.log(blob)
+            },
+            编辑选择器对应样式(group,subgroup,selector){
+                this.当前活动面板 = "样式编辑"
+                this.当前选择器 = selector
+            },
+          
+            设定css变量对象:function(){
+                let that = this
+                //console.log(that.css变量对象)
+                //let tempobj = JSON.parse(JSON.stringify(that.css变量对象))
+                let tempstring = ""
+                //console.log(tempobj)
+                for (item in that.css变量对象){
+                    tempstring = tempstring + item+":" +that.css变量对象[item]+';\n'
+                }
+                tempstring = "{"+tempstring+"}"
+                that.当前css样式表头 =":root"+tempstring
+                that.setstyle()
+            },
+            复制到剪贴板:function(内容){
+                this.$copyText(内容)
+            },
+            
+          
+            setstyle:function(){
+                let that = this
+                let 临时css样式对象 = JSON.parse(JSON.stringify(that.当前css样式内容对象))
+                let tempstring = that.当前选择器
+             //   console.log(JSON.stringify(临时css样式对象))
+               // console.log(that.当前css样式表对象)
+            //    console.log(tempstring)
+                that.当前css样式表对象[tempstring]["样式"] = that.生成css样式自对象(临时css样式对象)
+                that.当前css样式表对象[tempstring]["注释"] = that.生成css注释行自(that.当前选择器备注)
+                that.当前css样式表对象[tempstring]["对象"] = JSON.stringify(临时css样式对象)
+                that.当前css样式 ="/*"+that.当前选择器备注+"*/\n"+that.当前选择器+that.生成css样式自对象(临时css样式对象)
+                that.当前css样式表字符串 = that.生成css样式表自对象(that.当前css样式表对象)
+                let tempstyle = window.document.createElement("style")
+                that.当前css样式表字符串 = that.当前css样式表头+ that.当前css样式表字符串
+                if(that.主题包含激活的css片段){
+                    that.当前css样式表字符串 = that.当前css样式表字符串+that.笔记内css字符串
+                                }
+                tempstyle.innerHTML = that.当前css样式表字符串
+              //  console.log(that.当前css样式表字符串)
+                tempstyle.setAttribute("id","temptheme") 
+                that.mainuigetter()
+                let temps = that.主题设置目标.querySelectorAll("#temptheme")
+                temps.forEach(el=>el.remove())
+                that.mainhead.appendChild(tempstyle)
+            },
+            生成css样式自对象:function (对象){
+                let that = this 
+                let tempstyle  = "\n"
+                for(样式名 in 对象){
+                   // console.log(样式名)
+                    if (对象[样式名]["realvalue"]==""|对象[样式名]["realvalue"]==undefined|对象[样式名]["realvalue"]=="default"|对象[样式名]["unit"]=="none"){
+                      delete  对象[样式名]
+                    }
+                    else if (对象[样式名]&&对象[样式名]["!important"]){tempstyle = tempstyle + 样式名+":" + 对象[样式名]["realvalue"] + 对象[样式名]["unit"]+" !important;\n"}
+                    else {tempstyle = tempstyle + 样式名+":" + 对象[样式名]["realvalue"] + 对象[样式名]["unit"]+";\n"}
+
+                   
+                    
+                }
+                //console.log(临时css样式对象)
+                tempstyle =  tempstyle.replace(/default/g,"")
+                //console.log(tempstyle)
+                tempstyle = "{"+tempstyle+"}"
+                return tempstyle
+                },
+            testselector:function(selector){
+                let that = this
+                let tempstyle = window.document.createElement("style")
+                tempstyle.innerHTML = selector+'{border:dashed 2px blue;background-color:yellow}'
+                tempstyle.setAttribute("id","tempstyle") 
+                this.mainuigetter()
+                this.mainhead.appendChild(tempstyle)
+                tempstyle = this.mainhead.lastElementChild
+             //   console.log(tempstyle)
+                if (that.testflag){
+                    let temps = that.主题设置目标.querySelectorAll("#tempstyle")
+                    temps.forEach(el=>el.remove())
+                }
+                that.testflag = !that.testflag
+              //  
+                
+            },
+            生成css注释行自:function (内容){
+                let 临时注释 = "\n/*"+内容+"*/\n"
+                return 临时注释
+            },
+            生成css样式表自对象: function(对象) {
+                let css字符串 = "/*自动生成*/\n"
+                for (对象成员 in 对象){
+                    let 临时选择器 =  对象成员
+                    let 临时css样式 = 对象[对象成员]["样式"]
+                    let 临时css注释 = 对象[对象成员]["注释"]
+                    if (临时css样式!=""){
+                    let 临时css字符串片段 = 临时css注释+临时选择器+临时css样式
+                    css字符串 =  css字符串+临时css字符串片段}
+                    
+                    }
+                return css字符串
+                },
+            初始化css变量对象:async function(){
+                let that=this
+            //    let temptheme = await that.jsonfilegetter("daylight.css")
+                let css变量对象 = await that.jsonfilegetter(that.配色表地址)
+                let 临时css变量类型表 = await that.jsonfilegetter("css变量表.json")
+               
+
+                that.css变量对象 = JSON.parse(JSON.stringify(css变量对象))
+                that.css变量类型表 = JSON.parse(JSON.stringify(临时css变量类型表))
+              // console.log(that.css变量对象)
+              //  console.log(that.css变量类型表)
+                let tempstring = ""
+                //console.log(tempobj)
+                for (item in css变量对象){
+                    tempstring = tempstring + item+":" +css变量对象[item]+';\n'
+                }
+                tempstring = "{"+tempstring+"}"
+                that.当前css样式表头 =":root"+tempstring
+               // console.log("css样式表头",that.当前css样式表头)
+                
+            },
+            themesetter:async function(){
+                let that=this
+                let tempthemetag = that.主题设置目标.querySelector("#temptheme")
+                tempthemetag.innerHTML= that.temptheme
+            },
+            jsonfilegetter:async function(fileurl){
+                let that = this
+                await axios.get(fileurl).then((res)=>{
+                    that.tempdata = res.data
+                    
+                }) 
+                return that.tempdata
+            },
+            获取选择器组:async function(){
+                let that = this
+                that.选择器列表 =await that.jsonfilegetter(that.选择器表地址)
+                that.选择器列表.forEach(item=> {if(!item["group"]){item["group"]="未分组"}
+                    if(!item["subgroup"]){item["subgroup"]="未分组"}})
+                that.选择器列表 = JSON.parse(JSON.stringify(that.选择器列表))
+             //   console.log(that.选择器列表)
+            },
+            选择器数组下标({row,rowIndex}){
+                row.index = rowIndex
+            },
+
+            删除选择器:function(选择器){
+            //    console.log(选择器)
+                for(i=0;i<this.选择器列表.length;i++){
+                    if (this.选择器列表[i]["value"] == 选择器){
+                       // console.log(this.选择器列表[i])
+                        this.选择器列表.splice(i,1)
+                    }
+                }
+            },
+            添加选择器:function(index){
+                let that = this 
+                that.选择器列表.forEach(item=>{if(item["value"]=="空选择器"){flag = false}})
+                that.选择器列表.splice(index,0,{"group":"未分组","subgroup":"未分组","label":"空选择器","value":"空选择器"})
+            },
+            初始化当前css样式表对象:function(){
+                let that = this
+                let 临时css样式表对象 = {}
+                that.选择器列表.forEach(el=>{
+                    //console.log(el)
+                    let tempvalue = el["value"]
+                    临时css样式表对象[tempvalue]={"样式":"","注释":"","对象":""}
+                }) 
+                this.当前css样式表对象 = 临时css样式表对象
+              //  console.log(this.当前css样式表对象)
+                
+            },
+            初始化当前css样式内容对象:function(){
+                let that = this
+                let 临时css样式对象 = {}
+                that.cssproperties.forEach(el=>{
+                    //console.log(el)
+                    el["props"].forEach(prop=>{
+                    临时css样式对象[prop['value']]={"realvalue":'default',"unit":'default',"!important":false}
+                    if(prop['type']=="number"){临时css样式对象[prop['value']]={"realvalue":0,"unit":'default',"!important":false}}})
+                }) 
+                that.当前css样式内容对象 = JSON.parse(JSON.stringify(临时css样式对象))
+             //   console.log(that.当前css样式内容对象)
+            },
+            propertygetter:async function(){
+                let that = this
+                
+                that.cssunits  = await that.jsonfilegetter("cssunits.json")
+                //console.log(that.cssunits)
+                
+                that.cssproperties = await that.jsonfilegetter("cssproperties.json")
+                //console.log(that.cssproperties)
+                
+                
+            },
+            asideshower: function(){
+                //console.log(this.asidewidth)
+                this.asideshow = !this.asideshow
+            },
+ 
+            mainuigetter: function(){
+                let that = this
+                that.mainui = window.document.querySelector('iframe').contentDocument
+                
+                if(that.是否设置主界面主题){that.主题设置目标 = that.mainui }
+                    else{that.主题设置目标 = that.mainui.querySelector('.protyle-wysiwyg [data-node-id="'+this.目标id+'"] iframe').contentDocument
+                     }
+                if (that.主题设置目标){that.主题设置目标 = that.主题设置目标}
+                else{
+                    that.主题设置目标 = that.mainui  
+                    alert("无法设置这个块")
+                    that.目标id = ""}
+                  //  console.log(this.目标id, this.主题设置目标)
+                  that.mainhead = that.主题设置目标.querySelector("head")
+            },
+            differpush: function(a,b,flag){
+                let realflag = flag
+                if (a==[{}]){
+                    for(i=0;i<b.length;i++){
+                    a.push(b[i])
+                    }
+                }
+            for(i in b){
+            var flager1 = true
+            let temp1 = b[i]
+            let flagvalue = temp1[realflag]
+            for(j in a){
+              let tempinput = a
+              let tempobj2 = tempinput[j]
+              if (flagvalue ==  tempobj2[realflag])
+              {flager1 = false}  
+            } 
+            if (flager1){
+              a.push(temp1)
+            }
+            }
+          },
+            
+        }
+    })
+</script>
+
+<style>
+html{
+    height: 100%;
+    width:100%;
+    padding :0px;
+    margin: 0px;
+}
+body{
+    width: 100%;
+    height: 100%;
+    padding: 0px;
+    margin: 0px;
+    display: flex;
+}
+
+#ifram{
+    height: 100%;
+    width: 100%;
+    margin: 0px ;
+    padding:0px;
+    }
+
+#widgets{
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+    padding: 0px;
+}
+#main{
+    width: 100%;
+    height: 100%;
+    margin: 0ex;
+    padding: 0ex;
+}
+.column {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+}
+.column-left {
+    height: 100vh;
+    min-width: 0;
+    background-color: #fff;
+    position: relative;
+    float: left;
+}
+.column-right {
+    height: inherit;
+    margin: 0%;
+    padding: 0px !important;
+    background-color: #eee;
+    box-sizing: border-box;
+    overflow: scroll;
+}
+.resize-save {
+    position: absolute;
+    top: 0; right: 5px; bottom: 0; left: 0;
+    padding: 0px;
+    overflow: hidden;
+}
+.resize-bar {
+    width: 1000px; 
+    height: inherit;
+    resize: horizontal;
+    cursor: ew-resize;
+    cursor: col-resize;
+    opacity: 0;
+    overflow: scroll;
+}
+.resize-line {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    border-right: 5px solid #eee;
+    border-left: 3px solid #bbb;
+    pointer-events: none;
+}
+.resize-bar:hover ~ .resize-line,
+.resize-bar:active ~ .resize-line {
+    border-left: 3px dashed skyblue;
+}
+.resize-bar::-webkit-scrollbar {
+    width: 200px; height: inherit;
+}
+.widgetscont {
+margin: 0px;
+padding: 0%;
+overflow: auto;
+resize: vertical;
+}
+.tips {
+    font-size: 2px;
+}
+
+@supports (-moz-user-select: none) {
+    .resize-bar:hover ~ .resize-line,
+    .resize-bar:active ~ .resize-line {
+        border-left: 1px solid #bbb;
+    }
+    .resize-bar:hover ~ .resize-line::after,
+    .resize-bar:active ~ .resize-line::after {
+        content: '';
+        position: absolute;
+        width: 16px; height: 16px;
+        bottom: 0; right: -8px;
+        background-color:rgb(182, 181, 187);
+        background-size: 100% 100%;
+    }
+}
+
+</style>
+
